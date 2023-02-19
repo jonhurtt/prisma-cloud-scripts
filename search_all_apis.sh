@@ -208,7 +208,7 @@ for csp in ${all_csp_pfix[@]}; do
   #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   #Loop through all API Endpoints to retrieve list of resources
   #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
-  for endpoint in ${csp_api_endpoints[@]}; do
+  for api_endpoint in ${csp_api_endpoints[@]}; do
   
     current=$(date +%s)
     progress=$(($current-$start))
@@ -260,11 +260,11 @@ for csp in ${all_csp_pfix[@]}; do
     fi
     
     echo -e $spacer
-    echo -e "\033[1;36m[#${api_endpoint_id}] - Creating RQL for ${endpoint}...\033[0m"
+    echo -e "\033[1;36m[#${api_endpoint_id}] - Creating RQL for ${api_endpoint}...\033[0m"
     echo -e $spacer
     resource_count=0
       
-    rql_query="config from cloud.resource where api.name = ${endpoint}${rql_suffix}"
+    rql_query="config from cloud.resource where api.name = ${api_endpoint}${rql_suffix}"
     #echo $rql_query
     #echo -e $spacer
     
@@ -298,7 +298,7 @@ for csp in ${all_csp_pfix[@]}; do
     echo 
     echo -e $spacer
         
-    echo "[#${api_endpoint_id}] - Proccessing RQL Query for ${endpoint}..."
+    echo "[#${api_endpoint_id}] - Proccessing RQL Query for ${api_endpoint}..."
     echo -e $spacer
     #Get Resourse Count from JSON output and then add it to total resource count
     cloudType=$(cat ${rql_output_dir}/rql_response_${api_endpoint_id}.json | jq -r '.cloudType')
@@ -309,13 +309,13 @@ for csp in ${all_csp_pfix[@]}; do
     echo -e "\033[1;37m[#${api_endpoint_id}] - Number of Resources: ${resource_count}\033[0m"
     echo -e "\033[1;33m[#${api_endpoint_id}] - Total Number of Resources: ${total_resource_count}\033[0m"
     
-    api_endpoint_stats="${api_endpoint_id},${cloudType},${endpoint},${resource_count},${rql_query}"
+    api_endpoint_stats="${api_endpoint_id},${cloudType},${api_endpoint},${resource_count},${rql_query}"
     echo ${api_endpoint_stats} >> ${all_api_endpoints_stats_file}
     echo -e $spacer
   
-    cat ${rql_output_dir}/rql_response_${api_endpoint_id}.json | jq -r '.data.items[] | {"cloudtype": .cloudType, "endpoint": "'${endpoint}'", "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType }' >> ${resources_json_file}
+    cat ${rql_output_dir}/rql_response_${api_endpoint_id}.json | jq -r '.data.items[] | {"cloudtype": .cloudType, "api_endpoint": "'${api_endpoint}'", "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType }' >> ${resources_json_file}
     
-    echo -e "\033[1;36m[#${api_endpoint_id}] - Results for ${endpoint} stored in ${resources_json_file}\033[0m"  
+    echo -e "\033[1;36m[#${api_endpoint_id}] - Results for ${api_endpoint} stored in ${resources_json_file}\033[0m"  
     echo -e $spacer
     echo
     echo
@@ -324,7 +324,7 @@ for csp in ${all_csp_pfix[@]}; do
     ((api_endpoint_id++))
   done
   #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  #end of Loop -  for endpoint
+  #end of Loop -  for api_endpoint
   #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 echo
