@@ -141,15 +141,14 @@ mkdir $report_dir
 echo -e "\033[0;33mReport Directory Created ${report_dir}\033[0m"
 
 #Create all Files Names
-all_api_endpoints_list_file="${report_dir}/${date}_all_api_endpoints.csv"
 resources_json_file="${report_dir}/${date}_resources.json"
 resources_csv_file="${report_dir}/${date}_resources_report.csv"
 
 all_api_endpoints_stats_file="${report_dir}/${date}_all_api_endpoints_stats_report.csv"
 
 #Build Header for CSV Output
-resource_header="#cloudtype,endpoint,id,accountId,name,accountName,regionId,regionName,service,resourceType"
-api_endpoint_stats_header="#api_endpoint_id,cloudType,endpoint,resource_count,rql_query"
+resource_header="#cloudtype,api_endpoint,id,accountId,name,accountName,regionId,regionName,service,resourceType"
+api_endpoint_stats_header="#api_endpoint_id,cloudType,api_endpoint,resource_count,rql_query"
 echo ${api_endpoint_stats_header} > ${all_api_endpoints_stats_file}
 
 
