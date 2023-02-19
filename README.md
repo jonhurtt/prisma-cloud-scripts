@@ -28,7 +28,7 @@ API responses for each RQL executed for reference. XXX is the "api_endpoint_id"
 - **_api_endpoints_{csp}.json**
 list of all the API endpoints for each CSP {aws, azure, gcp, oci & alibaba}
 
-More Efficent Version located here - [find_cloud_resources_without_tags.sh](https://github.com/PaloAltoNetworks/prisma_channel_resources/blob/main/prisma_bash_toolbox-main/find_cloud_resources_without_tags.sh)
+More Efficent Version to look at Cloud Resources without any Tag Value is located here - [find_cloud_resources_without_tags.sh](https://github.com/PaloAltoNetworks/prisma_channel_resources/blob/main/prisma_bash_toolbox-main/find_cloud_resources_without_tags.sh)
 
 ## Additional Links and Information
 [Prisma Cloud Channel Resources](https://github.com/PaloAltoNetworks/prisma_channel_resources)
