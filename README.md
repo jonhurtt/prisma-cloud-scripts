@@ -39,11 +39,6 @@ More Efficent Version to look at Cloud Resources without any Tag Value is locate
 ### Output
 Will create a single CSV with list of all data stores from accounts with Data Securty (view from Data Security Settings) enabled to allow for more advanced caluations 
 
-reports will have the following:
-
-- **CSV of matched Resources** with csv format of [#cloudtype, api_endpoint, id, accountId, name, accountName, regionId, regionName, service, resourceType]
-
-
 
 ## Additional Links and Information
 [Prisma Cloud Channel Resources](https://github.com/PaloAltoNetworks/prisma_channel_resources)
