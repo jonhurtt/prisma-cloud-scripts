@@ -28,7 +28,7 @@ rql_api_response=$(curl --url "$api_url/dlp/api/v1/resource-inventory/resources"
                         --header "x-redlock-auth: $jwt") \
 
 
-printf '%s\n' "resourceName,size,dssEligibleSize,wildfireEligibleSize,dssAndWildfireEligibleSize,dssAndWildfireEligibleSize,isInventoryConfigured" > "list_of_data_resources.csv"
+printf '%s\n' "resourceName,size,dssEligibleSize,wildfireEligibleSize,dssAndWildfireEligibleSize,isInventoryConfigured" > "list_of_data_resources.csv"
 
 printf '%s' "$rql_api_response" | jq -r '.resources[] | {"resourceName": .resourceName, "size": .storageSize.size, "dssEligibleSize": .storageSize.dssEligibleSize, "wildfireEligibleSize": .storageSize.wildfireEligibleSize, "dssAndWildfireEligibleSize": .storageSize.dssAndWildfireEligibleSize, "dssAndWildfireEligibleSize": .storageSize.dssAndWildfireEligibleSize, "isInventoryConfigured": .storageSize.isInventoryConfigured}' | jq -r '[.[]] | @csv' >> list_of_data_resources.csv
 
