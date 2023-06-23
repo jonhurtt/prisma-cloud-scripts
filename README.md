@@ -41,7 +41,7 @@ Will create a single CSV with list of all data stores from accounts with Data Se
 
 
 
-## [Alert Operations Report]([https://github.com/JonHurtt/prisma-cloud-scripts/blob/main/list_all_data_resources.sh](https://github.com/JonHurtt/prisma-cloud-scripts/blob/main/alert-ops-report.sh))
+## [Alert Operations Report](https://github.com/JonHurtt/prisma-cloud-scripts/blob/main/list_all_data_resources.sh](https://github.com/JonHurtt/prisma-cloud-scripts/blob/main/alert-ops-report.sh)
 
 ### Input: 
 
