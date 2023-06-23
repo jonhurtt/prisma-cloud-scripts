@@ -40,6 +40,17 @@ More Efficent Version to look at Cloud Resources without any Tag Value is locate
 Will create a single CSV with list of all data stores from accounts with Data Securty (view from Data Security Settings) enabled to allow for more advanced caluations 
 
 
+
+## [Alert Operations Report]([https://github.com/JonHurtt/prisma-cloud-scripts/blob/main/list_all_data_resources.sh](https://github.com/JonHurtt/prisma-cloud-scripts/blob/main/alert-ops-report.sh))
+
+### Input: 
+
+- Define access_key & secret_key and pc_api_url in script to your Prisma Cloud Tenant
+- Define Time Unit & Time Intervals
+
+### Output
+Will create a summary CSV with totals of alerts of by time unit/interval and indivual .csv files for each time unit/interval/alert status.
+
 ## Additional Links and Information
 [Prisma Cloud Channel Resources](https://github.com/PaloAltoNetworks/prisma_channel_resources)
 
