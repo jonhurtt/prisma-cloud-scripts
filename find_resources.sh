@@ -19,6 +19,9 @@ PC_SECRETKEY="REDACTED"
 KVP_KEY="created-by"
 KVP_VALUE="prismacloud-agentless-scan"
 
+#KVP_KEY="lambda:createdBy"
+#KVP_VALUE="SAM"
+
 #Select CSP from {"aws-" "azure-" "gcp-" "gcloud-" "alibaba-" "oci-"} 
 csp_pfix_array=("aws-" "azure-" "gcp-" "gcloud-" "alibaba-" "oci-")
 
@@ -250,7 +253,7 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 	#Create JSON for all Resoruces that match criteria
 	cat ${JSON_OUTPUT_LOCATION}/01_${csp_indx}_*.json | jq -r '.data.items[] | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType }' > "${JSON_OUTPUT_LOCATION}/02_${csp_indx}_all_cloud_resources_${date}.json"
 	
-	cat ${JSON_OUTPUT_LOCATION}/02_${csp_indx}_all_cloud_resources_${date}.json | jq -r '. | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
+	cat ${JSON_OUTPUT_LOCATION}/02_${csp_indx}_all_cloud_resources_${date}.json | jq -r '. | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType, "resourceApiName": .resource.resourceApiName }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
 	
 	printf '%s\n' "Updated Inventory Report located at ${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
 	printf '%s\n' ${DIVIDER}
