@@ -251,7 +251,7 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 	printf '%s Total Resources found from %s\n' ${TOTAL_RESOURCES} ${rql_api_array[api_query_indx]}
 		
 	#Create JSON for all Resoruces that match criteria
-	cat ${JSON_OUTPUT_LOCATION}/01_${csp_indx}_*.json | jq -r '.data.items[] | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType }' > "${JSON_OUTPUT_LOCATION}/02_${csp_indx}_all_cloud_resources_${date}.json"
+	cat ${JSON_OUTPUT_LOCATION}/01_${csp_indx}_*.json | jq -r '.data.items[] | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType, "resourceApiName": .resource.resourceApiName }' > "${JSON_OUTPUT_LOCATION}/02_${csp_indx}_all_cloud_resources_${date}.json"
 	
 	cat ${JSON_OUTPUT_LOCATION}/02_${csp_indx}_all_cloud_resources_${date}.json | jq -r '. | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType, "resourceApiName": .resource.resourceApiName }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
 	
