@@ -19,11 +19,8 @@ PC_SECRETKEY="REDACTED"
 KVP_KEY="created-by"
 KVP_VALUE="prismacloud-agentless-scan"
 
-#KVP_KEY="lambda:createdBy"
-#KVP_VALUE="SAM"
-
 #Select CSP from {"aws-" "azure-" "gcp-" "gcloud-" "alibaba-" "oci-"} 
-csp_pfix_array=("aws-" "azure-" "gcp-" "gcloud-" "alibaba-" "oci-")
+csp_pfix_array=("aws-")
 
 #Define Time Amount and Units for search
 TIME_AMOUNT=48
@@ -33,6 +30,8 @@ TIME_UNIT="hour"
 
 TOTAL_RESOURCES=0
 TOTAL_ALERTS=0
+TOTAL_RESOURCES_WITH_ALERTS=0
+
 
 #Amount of Time the JWT is valid (10 min) adjust refresh to lower number with slower connections
 jwt_token_timeout=600
@@ -50,8 +49,8 @@ rm -f ${OUTPUT_LOCATION}/*.json
 mkdir -p ${JSON_OUTPUT_LOCATION}
 rm -f ${JSON_OUTPUT_LOCATION}/*.json
  
-SPACER="========================================================================================"
-DIVIDER="++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+SPACER="===================================================================================================================================="
+DIVIDER="++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 
 printf "%s\n" ${DIVIDER}
 #Begin Applicaiton Timer
@@ -89,7 +88,7 @@ printf '%s\n' "alertId,alertStatus,policyName,policyDesc,policySeverity,cloudTyp
 
 printf "%s\n" ${DIVIDER}
 for csp_indx in "${!csp_pfix_array[@]}"; do \
-	printf "Assembling list of available APIs for %s...\n" ${csp_pfix_array[csp_indx]}
+	printf "|- Assembling list of available APIs for %s...\n" ${csp_pfix_array[csp_indx]}
 	config_request_body=$(cat <<EOF
 	{
 		  "query":"config from cloud.resource where api.name = ${csp_pfix_array[csp_indx]}",
@@ -113,7 +112,8 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 		
 	rql_api_array=($(cat ${JSON_OUTPUT_LOCATION}/00_api_suggestions_${csp_indx}.json | jq -r '.suggestions[]?'))
 	
-	printf '%s%s available API endpoints\n' ${csp_pfix_array[csp_indx]} ${#rql_api_array[@]}
+	printf '|- %s%s available API endpoints\n' ${csp_pfix_array[csp_indx]} ${#rql_api_array[@]}
+	printf "%s\n" ${SPACER}
 	
 	for api_query_indx in "${!rql_api_array[@]}"; do \
 		current=$(date +%s)	
@@ -123,7 +123,7 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 		#Refresh Token if TImer is almost up
 		if [[ $trigger -gt $jwt_token_refresh ]]; then
 			printf "%s\n" ${SPACER}
-			printf "Refreshing JWT Token Refresh\n"
+			printf "|- Refreshing JWT Token Refresh\n"
 			
 			PC_JWT_RESPONSE=$(curl --no-progress-meter --request GET \
 				--url "${PC_APIURL}/auth_token/extend" \
@@ -135,7 +135,7 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 			PC_JWT=$(printf %s "${PC_JWT_RESPONSE}" | jq -r '.token')
 		 
 			 if [ -z "${PC_JWT}" ]; then
-				printf "JWT not recieved, recommending you check your variable assignment\n";
+				printf "|- JWT not recieved, recommending you check your variable assignment\n";
 				printf "%s\n" ${DIVIDER}				
 				exit;
 			else
@@ -143,7 +143,7 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 			fi #end if JWT exisit
 		fi #end token refresh. 
 		
-		printf "Searching for resources via %s api with tags containing key:value of {%s:%s} ... \n" ${rql_api_array[api_query_indx]} ${KVP_KEY} ${KVP_VALUE}
+		printf "|- [api:%s/%s] Searching for resources via %s api with tags containing key:value of {%s:%s} ... \n" $api_query_indx ${#rql_api_array[@]} ${rql_api_array[api_query_indx]} ${KVP_KEY} ${KVP_VALUE}
 		
 		rql_request_body=$(cat <<EOF
 		{
@@ -181,12 +181,14 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 		TOTAL_RESOURCES=$((TOTAL_RESOURCES+RESOURCES))
 
 		if [[ $RESOURCES -gt 0 ]]; then
+			
 			printf '%s\n' ${SPACER}
-			printf '[%s of %s] %s => %s resource(s) of %s total\n' $api_query_indx ${#rql_api_array[@]} ${rql_api_array[api_query_indx]}  ${RESOURCES} ${TOTAL_RESOURCES}
+			printf '|- [api:%s/%s] %s => %s resource(s) of %s total\n' $api_query_indx ${#rql_api_array[@]} ${rql_api_array[api_query_indx]}  ${RESOURCES} ${TOTAL_RESOURCES}
+			printf '%s\n' ${SPACER}
 			
 			resource_id_array=($(cat ${JSON_OUTPUT_LOCATION}/01_${csp_indx}_${api_query_indx}_api_query.json  | jq -r '. | .data.items[] | .id'))
 		
-			printf "Finding all alerts for resources found via %s matching key:value of {%s:%s} ...\n" ${rql_api_array[api_query_indx]} ${KVP_KEY} ${KVP_VALUE}
+			printf "|- Finding all alerts for resources found via %s matching key:value of {%s:%s} ...\n" ${rql_api_array[api_query_indx]} ${KVP_KEY} ${KVP_VALUE}
 			for resource_id_indx in "${!resource_id_array[@]}"; do \
 				current=$(date +%s)
 				progress=$(($current-$start))
@@ -213,7 +215,6 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 						sleep $((jwt_token_timeout-trigger))
 					fi #end if JWT exisit
 				fi #end token refresh. 
-			
 				
 				alert_HTTP_RESPONSE_CODE=$(curl --no-progress-meter --request GET \
 					--url "${PC_APIURL}/v2/alert?detailed=true&timeType=relative&timeAmount=${TIME_AMOUNT}&timeUnit=${TIME_UNIT}&resource.id=${resource_id_array[resource_id_indx]}" \
@@ -222,7 +223,7 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 					--header "x-redlock-auth: ${PC_JWT}" \
 					--output "${JSON_OUTPUT_LOCATION}/03_${csp_indx}_alert_${resource_id_indx}.json")
 				
-				echo -ne "-->[${trigger}|${alert_HTTP_RESPONSE_CODE}] Investigating resource ${resource_id_indx} of ${#resource_id_array[@]}  \r"	
+				echo -ne "|-- [${trigger}|${alert_HTTP_RESPONSE_CODE}] Investigating resource ${resource_id_indx} of ${#resource_id_array[@]}  \r"	
 				
 				if ! [[ "$alert_HTTP_RESPONSE_CODE" =~ ^2 ]]; then
 					printf '%s\n' ${DIVIDER}
@@ -237,32 +238,33 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 				
 			
 				if [[ "$ALERTS" -gt 0 ]]; then
-					printf '[%s of %s] Resource ID %s has %s of the total %s alerts\n' $resource_id_indx ${#resource_id_array[@]} ${resource_id_array[resource_id_indx]} ${ALERTS} ${TOTAL_ALERTS}	
-					printf '%s Total Alerts found for %s Total Resources \n' ${TOTAL_ALERTS} ${TOTAL_RESOURCES}
+					TOTAL_RESOURCES_WITH_ALERTS=$((TOTAL_RESOURCES_WITH_ALERTS+1))
+					
+					printf '|-- [resource:#%s/%s] Resource ID %s has %s of the total %s alerts\n' $resource_id_indx ${#resource_id_array[@]} ${resource_id_array[resource_id_indx]} ${ALERTS} ${TOTAL_ALERTS}
 					
 					cat ${JSON_OUTPUT_LOCATION}/03_${csp_indx}_*.json | jq -r '.items[] | {"alertId" : .id, "alertStatus" : .status, "policyName" : .policy.name, "policyDesc" : .policy.description, "policySeverity": .policy.severity, "cloudType": .resource.cloudType, "resourceId": .resource.id, "accountId": .resource.accountId,  "resourcenName": .resource.name,  "accountName": .resource.account,  "regionId": .resource.regionId,  "resourceRegion": .resource.region,  "cloudServiceName": .resource.cloudServiceName, "resourceType": .resource.resourceType, "resourceApiName": .resource.resourceApiName }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/cloud_resources_with_alerts_$date.csv"
-					
-					printf '%s\n' "Updated Alert Report located at ${OUTPUT_LOCATION}/cloud_resources_with_alerts_$date.csv"
 				fi #end of if Alerts > 0
 			done #end iteration through resources
+			printf '%s\n' ${SPACER}
+			printf '%s Alerts across %s Resources [%s total resources]\n' ${TOTAL_ALERTS} ${TOTAL_RESOURCES_WITH_ALERTS} ${TOTAL_RESOURCES}
+			printf '%s\n' ${SPACER}
 		fi	# end of if Resources > 0
 	done #end iteration through api endpoints
-	
-	printf '%s Total Resources found from %s\n' ${TOTAL_RESOURCES} ${rql_api_array[api_query_indx]}
-		
+
 	#Create JSON for all Resoruces that match criteria
 	cat ${JSON_OUTPUT_LOCATION}/01_${csp_indx}_*.json | jq -r '.data.items[] | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType, "resourceApiName": .resource.resourceApiName }' > "${JSON_OUTPUT_LOCATION}/02_${csp_indx}_all_cloud_resources_${date}.json"
 	
 	cat ${JSON_OUTPUT_LOCATION}/02_${csp_indx}_all_cloud_resources_${date}.json | jq -r '. | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType, "resourceApiName": .resource.resourceApiName }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
-	
-	printf '%s\n' "Updated Inventory Report located at ${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
-	printf '%s\n' ${DIVIDER}
-	
+
 done #end iteration through CSP prefix
+
+printf '%s\n' ${SPACER}
+printf '%s Alerts across %s Resources across %s total resources\n' ${TOTAL_ALERTS} ${TOTAL_RESOURCES_WITH_ALERTS} ${TOTAL_RESOURCES}
+printf '%s\n' "Inventory Report located at ${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
+printf '%s\n' ${SPACER}
 
 #rm -f ${JSON_OUTPUT_LOCATION}/*.json
 
-printf '%s\n' ${DIVIDER}
 end=$(date +%s)
 end_time=$(date +%Y%m%d-%H:%M:%S)
 duration=$end-$start
