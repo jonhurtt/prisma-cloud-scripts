@@ -20,10 +20,10 @@ KVP_KEY="created-by"
 KVP_VALUE="prismacloud-agentless-scan"
 
 #Select CSP from {"aws-" "azure-" "gcp-" "gcloud-" "alibaba-" "oci-"} 
-csp_pfix_array=("aws-")
+csp_pfix_array=("aws-" "azure-")
 
 #Define Time Amount and Units for search
-TIME_AMOUNT=48
+TIME_AMOUNT=24
 TIME_UNIT="hour"
 
 ##############################################################################
@@ -53,6 +53,7 @@ SPACER="========================================================================
 DIVIDER="++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 
 printf "%s\n" ${DIVIDER}
+
 #Begin Applicaiton Timer
 start_time=$(date +%Y%m%d-%H:%M:%S)
 printf "Start Time: ${start_time}\n"
@@ -83,10 +84,11 @@ else
 fi
 
 #Create CSV Headers
-printf '%s\n' "cloudType,id,accountId,name,accountName,regionId,regionName,service,resourceType,resourceApiName" > "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
+printf '%s\n' "cloudType,id,accountId,name,accountName,regionId,regionName,service,resourceType" > "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
 printf '%s\n' "alertId,alertStatus,policyName,policyDesc,policySeverity,cloudType,resourceId,accountId,resourceName,accountName,regionId,regionName,service,resourceType,resourceApiName" > "${OUTPUT_LOCATION}/cloud_resources_with_alerts_$date.csv"
 
 printf "%s\n" ${DIVIDER}
+#Iterate through each of the CSP Prefix Array to capture all available API endpoints
 for csp_indx in "${!csp_pfix_array[@]}"; do \
 	printf "|- Assembling list of available APIs for %s...\n" ${csp_pfix_array[csp_indx]}
 	config_request_body=$(cat <<EOF
@@ -110,11 +112,13 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 		--header "x-redlock-auth: ${PC_JWT}" \
 		--data "${config_request_body}" > "${JSON_OUTPUT_LOCATION}/00_api_suggestions_${csp_indx}.json"
 		
+	#Build Array with all available API Endpoints for CSP
 	rql_api_array=($(cat ${JSON_OUTPUT_LOCATION}/00_api_suggestions_${csp_indx}.json | jq -r '.suggestions[]?'))
 	
 	printf '|- %s%s available API endpoints\n' ${csp_pfix_array[csp_indx]} ${#rql_api_array[@]}
 	printf "%s\n" ${SPACER}
 	
+	#Iterate through all available API endpoints for CSP looking for Resources
 	for api_query_indx in "${!rql_api_array[@]}"; do \
 		current=$(date +%s)	
 		progress=$(($current-$start))
@@ -159,7 +163,7 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 		EOF
 		)
 	
-		config_HTTP_RESPONSE_CODE=$(curl  --no-progress-meter --url "${PC_APIURL}/search/config" \
+		config_HTTP_RESPONSE_CODE=$(curl --no-progress-meter --url "${PC_APIURL}/search/config" \
 			--write-out %{http_code}\
 			--header "accept: application/json; charset=UTF-8" \
 			--header "content-type: application/json" \
@@ -180,6 +184,7 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 		RESOURCES=$(cat ${JSON_OUTPUT_LOCATION}/01_${csp_indx}_${api_query_indx}_api_query.json | jq '. | .data.totalRows')
 		TOTAL_RESOURCES=$((TOTAL_RESOURCES+RESOURCES))
 
+		#if Resources count is greater than 0, serach for alerts associated with Resource
 		if [[ $RESOURCES -gt 0 ]]; then
 			
 			printf '%s\n' ${SPACER}
@@ -189,6 +194,7 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 			resource_id_array=($(cat ${JSON_OUTPUT_LOCATION}/01_${csp_indx}_${api_query_indx}_api_query.json  | jq -r '. | .data.items[] | .id'))
 		
 			printf "|- Finding all alerts for resources found via %s matching key:value of {%s:%s} ...\n" ${rql_api_array[api_query_indx]} ${KVP_KEY} ${KVP_VALUE}
+			#Iterate through all resources and retrieve Alerts
 			for resource_id_indx in "${!resource_id_array[@]}"; do \
 				current=$(date +%s)
 				progress=$(($current-$start))
@@ -236,7 +242,7 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 				ALERTS=$(cat ${JSON_OUTPUT_LOCATION}/03_${csp_indx}_alert_${resource_id_indx}.json | jq '. | .totalRows')
 				TOTAL_ALERTS=$((TOTAL_ALERTS+ALERTS))
 				
-			
+				#IF Alerts > 0 then increment count (total resources with alerts) and add to CSV		
 				if [[ "$ALERTS" -gt 0 ]]; then
 					TOTAL_RESOURCES_WITH_ALERTS=$((TOTAL_RESOURCES_WITH_ALERTS+1))
 					
@@ -252,12 +258,12 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 	done #end iteration through api endpoints
 
 	#Create JSON for all Resoruces that match criteria
-	cat ${JSON_OUTPUT_LOCATION}/01_${csp_indx}_*.json | jq -r '.data.items[] | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType, "resourceApiName": .resource.resourceApiName }' > "${JSON_OUTPUT_LOCATION}/02_${csp_indx}_all_cloud_resources_${date}.json"
+	cat ${JSON_OUTPUT_LOCATION}/01_${csp_indx}_*.json | jq -r '.data.items[] | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType}' > "${JSON_OUTPUT_LOCATION}/02_${csp_indx}_all_cloud_resources_${date}.json"
 	
-	cat ${JSON_OUTPUT_LOCATION}/02_${csp_indx}_all_cloud_resources_${date}.json | jq -r '. | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType, "resourceApiName": .resource.resourceApiName }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
-
+	cat ${JSON_OUTPUT_LOCATION}/02_${csp_indx}_all_cloud_resources_${date}.json | jq -r '. | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType}' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
 done #end iteration through CSP prefix
 
+#Output Summary
 printf '%s\n' ${SPACER}
 printf '%s Alerts across %s Resources across %s total resources\n' ${TOTAL_ALERTS} ${TOTAL_RESOURCES_WITH_ALERTS} ${TOTAL_RESOURCES}
 printf '%s\n' "Inventory Report located at ${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
