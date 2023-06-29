@@ -44,8 +44,8 @@ Iterate through all supported RQL config API Endpoints looking for all active re
 
 ### Output
 - Will Create a folder "output" and "output/json"
-- Create file "all_cloud_resources_YYYYMMDD.csv" with all active reources matching key value pair
-- Create file "cloud_resources_with_alerts_YYYYMMDD.csv" with alerts of all active reources matching key value pair
+- Create file "all_cloud_resources_YYYYMMDD.csv" with all active resources matching key value pair
+- Create file "cloud_resources_with_alerts_YYYYMMDD.csv" with alerts of all active resources matching key value pair
 
 ## [List all Data Resources](https://github.com/JonHurtt/prisma-cloud-scripts/blob/main/list_all_data_resources.sh)
 
