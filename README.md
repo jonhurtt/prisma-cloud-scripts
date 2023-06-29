@@ -30,6 +30,23 @@ list of all the API endpoints for each CSP {aws, azure, gcp, oci & alibaba}
 
 More Efficent Version to look at Cloud Resources without any Tag Value is located here - [find_cloud_resources_without_tags.sh](https://github.com/PaloAltoNetworks/prisma_channel_resources/blob/main/prisma_bash_toolbox-main/find_cloud_resources_without_tags.sh)
 
+## [Find Resources with Alerts](https://github.com/JonHurtt/prisma-cloud-scripts/blob/main/find_resources_with_alerts.sh)
+Iterate through all supported RQL config API Endpoints looking for all active resources with defined key value pair of KVP_KEY:KVP_VALUE and then retrieve all alerts for resources matching key value pair
+
+### Input: 
+
+- Define PC_ACCESSKEY & PC_SECRETKEY and PC_APIURL in script to your Prisma Cloud Tenant 
+- Define KVP_KEY and KVP_VALUE
+- For faster results prune csp_pfix_array to only CSP prefix that match your environment
+- Define RESOURCE_TIME_AMOUNT and RESOURCE_TIME_UNIT as time which resources exisit (eg 24 hour or 7 day)
+- Define ALERT_TIME_AMOUNT and ALERT_TIME_UNIT as time which alerts exisit (eg 24 hour or 7 day)
+- If you want preserve the json outputs remove line 220 "rm -f ${JSON_OUTPUT_LOCATION}/*.json"
+
+### Output
+- Will Create a folder "output" and "output/json"
+- Create file "all_cloud_resources_YYYYMMDD.csv" with all active reources matching key value pair
+- Create file "cloud_resources_with_alerts_YYYYMMDD.csv" with alerts of all active reources matching key value pair
+
 ## [List all Data Resources](https://github.com/JonHurtt/prisma-cloud-scripts/blob/main/list_all_data_resources.sh)
 
 ### Input: 
