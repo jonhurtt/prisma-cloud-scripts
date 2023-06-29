@@ -23,14 +23,21 @@ KVP_VALUE="prismacloud-agentless-scan"
 csp_pfix_array=("aws-" "azure-" "gcp-" "gcloud-" "alibaba-" "oci-")
 
 #Define Time Amount and Units for search
-TIME_AMOUNT=24
-TIME_UNIT="hour"
+RESOURCE_TIME_AMOUNT=24
+RESOURCE_TIME_UNIT="hour"
+
+ALERT_TIME_AMOUNT=30
+ALERT_TIME_UNIT="day"
 
 ##############################################################################
 
 TOTAL_RESOURCES=0
 TOTAL_ALERTS=0
 TOTAL_RESOURCES_WITH_ALERTS=0
+
+#used for batching curl command for finding alerts
+batch_size=10
+curl_break=2
 
 #Amount of Time the JWT is valid (10 min) adjust refresh to lower number with slower connections
 jwt_token_timeout=600
@@ -65,10 +72,10 @@ EOF
 
 #API Call for JWT
 PC_JWT_RESPONSE=$(curl -s --request POST \
-				   --url "${PC_APIURL}/login" \
-				   --header 'Accept: application/json; charset=UTF-8' \
-				   --header 'Content-Type: application/json; charset=UTF-8' \
-				   --data "${AUTH_PAYLOAD}")
+	--url "${PC_APIURL}/login" \
+	--header 'Accept: application/json; charset=UTF-8' \
+	--header 'Content-Type: application/json; charset=UTF-8' \
+	--data "${AUTH_PAYLOAD}")
 
 
 PC_JWT=$(printf %s "${PC_JWT_RESPONSE}" | jq -r '.token')
@@ -78,6 +85,7 @@ if [ -z "${PC_JWT}" ]; then
 	exit;
 else
 	printf "JWT Recieved\n"
+	printf "%s\n" ${SPACER}
 fi
 
 printf "Assembling list of available APIs...\n"
@@ -89,8 +97,8 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 		  "timeRange":{
 			"type":"relative",
 			"value":{
-			   "unit":"${TIME_UNIT}",
-			   "amount":${TIME_AMOUNT}
+			   "unit":"${RESOURCE_TIME_UNIT}",
+			   "amount":${RESOURCE_TIME_AMOUNT}
 			}
 		  }
 	}
@@ -98,19 +106,18 @@ for csp_indx in "${!csp_pfix_array[@]}"; do \
 	)
 	
 	curl --no-progress-meter --url "${PC_APIURL}/search/suggest" \
-		-w '{"curl_http_code": %{http_code}}' \
 		--header "accept: application/json; charset=UTF-8" \
 		--header "content-type: application/json" \
 		--header "x-redlock-auth: ${PC_JWT}" \
-		--data "${config_request_body}" > "${JSON_OUTPUT_LOCATION}/api_suggestions_${csp_indx}.json"
-done
-#end iteration through CSP prefix.
+		--data "${config_request_body}" > "${JSON_OUTPUT_LOCATION}/00_api_suggestions_${csp_indx}.json"
+done #end iteration through CSP prefix.
 
-rql_api_array=($(cat ${JSON_OUTPUT_LOCATION}/api_suggestions_* | jq -r '.suggestions[]?'))
+rql_api_array=($(cat ${JSON_OUTPUT_LOCATION}/00_api_suggestions_* | jq -r '.suggestions[]?'))
 
 printf '%s available API endpoints\n' ${#rql_api_array[@]}
 printf "%s\n" ${SPACER}
-printf "Searching for resources with tags containing key:value of {%s:%s} ... \n"  ${KVP_KEY} ${KVP_VALUE}
+
+printf "Searching for resources with tags containing key:value of {%s:%s} over past %s %s... \n"  ${KVP_KEY} ${KVP_VALUE} ${RESOURCE_TIME_AMOUNT} ${RESOURCE_TIME_UNIT}
 printf "%s\n" ${SPACER}
 
 for api_query_indx in "${!rql_api_array[@]}"; do \
@@ -121,8 +128,8 @@ for api_query_indx in "${!rql_api_array[@]}"; do \
 		  "timeRange":{
 			"type":"relative",
 			"value":{
-			"unit":"${TIME_UNIT}",
-			"amount":${TIME_AMOUNT}
+			"unit":"${RESOURCE_TIME_UNIT}",
+			"amount":${RESOURCE_TIME_AMOUNT}
 			}
 		  }
 	}
@@ -133,39 +140,84 @@ for api_query_indx in "${!rql_api_array[@]}"; do \
 		--header "accept: application/json; charset=UTF-8" \
 		--header "content-type: application/json" \
 		--header "x-redlock-auth: ${PC_JWT}" \
-		--data "${rql_request_body}" > "${JSON_OUTPUT_LOCATION}/api_query_${api_query_indx}.json" &
+		--data "${rql_request_body}" > "${JSON_OUTPUT_LOCATION}/01_api_query_${api_query_indx}.json" &
 done
 wait
 
 #Create CSV for all resources
 printf '%s\n' "cloudType,id,accountId,name,accountName,regionId,regionName,service,resourceType" > "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
 
-cat ${JSON_OUTPUT_LOCATION}/api_query_*.json | jq -r '.data.items[] | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
+cat ${JSON_OUTPUT_LOCATION}/01_api_query_*.json | jq -r '.data.items[] | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
 
 printf '%s\n' "Inventory Report located at ${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
 printf "%s\n" ${SPACER}
 
 #Find all Resouce IDs to search for Alerts
-resource_id_array=($(cat ${JSON_OUTPUT_LOCATION}/api_query_*.json | jq -r '.data.items[].id'))
+resource_id_array=($(cat ${JSON_OUTPUT_LOCATION}/01_api_query_*.json | jq -r '.data.items[].id'))
 
-printf "Finding all alerts for %s resources found matching key:value of {%s:%s} ...\n" ${#resource_id_array[@]} ${KVP_KEY} ${KVP_VALUE}
+printf "Finding all alerts for %s resources found matching key:value of {%s:%s} over past %s %s ...\n" ${#resource_id_array[@]} ${KVP_KEY} ${KVP_VALUE} ${ALERT_TIME_AMOUNT} ${ALERT_TIME_UNIT}
 printf "%s\n" ${SPACER}
 
-for resource_id_indx in "${!resource_id_array[@]}"; do \
-	curl --no-progress-meter\
-	   --url "${PC_APIURL}/v2/alert?detailed=true&timeType=relative&timeAmount=${TIME_AMOUNT}&timeUnit=${TIME_UNIT}&resource.id=${resource_id_array[resource_id_indx]}" \
-	   --header 'content-type: application/json; charset=UTF-8' \
-	   --header "x-redlock-auth: ${PC_JWT}" > "${JSON_OUTPUT_LOCATION}/alerts_${resource_id_indx}.json" &
-done
+array_count=${#resource_id_array[@]}
+counter=0
 
+#Batch Curl for large resource counts (>1K)
+while [ $counter -lt ${#resource_id_array[@]} ]
+do
+	#Resize Batach size is needed
+	if [[ $((counter + batch_size )) -ge $((${#resource_id_array[@]})) ]]; then
+		batch_size=$(( ${#resource_id_array[@]} - counter ))
+	fi
+	
+	#Iterate through array in batches
+	for ((batch_index=1;batch_index<=batch_size;batch_index++));do
+		curl_url="${PC_APIURL}/v2/alert?detailed=true&timeType=relative&timeAmount=${ALERT_TIME_AMOUNT}&timeUnit=${ALERT_TIME_UNIT}&resource.id=${resource_id_array[counter]}"
+		echo -ne "-->[${trigger}] Investigating resource ${counter} of ${#resource_id_array[@]}  \r"		
+		curl --no-progress-meter --request GET \
+			--url ${curl_url} \
+			--header 'content-type: application/json; charset=UTF-8' \
+			--header "x-redlock-auth: ${PC_JWT}" > "${JSON_OUTPUT_LOCATION}/02_alerts_${counter}.json" &
+		
+		counter=$(( counter + 1 ))
+	done #end for loop
+	sleep ${curl_break}
+	
+	current=$(date +%s)
+	progress=$(($current-$start))
+	trigger=$(expr $progress % $jwt_token_timeout)
+
+	#Refresh Token if TImer is almost up
+	if [[ $trigger -gt $jwt_token_refresh ]]; then
+		printf "%s\n" ${SPACER}
+		printf "Refreshing JWT Token Refresh\n"
+	
+		PC_JWT_RESPONSE=$(curl -s --request GET \
+			--url "${PC_APIURL}/auth_token/extend" \
+			--header 'Accept: application/json; charset=UTF-8' \
+			--header 'Content-Type: application/json charset=UTF-8' \
+			--header "x-redlock-auth: ${PC_JWT}") \
+		
+		PC_JWT=$(printf %s "${PC_JWT_RESPONSE}" | jq -r '.token')
+	 
+		 if [ -z "${PC_JWT}" ]; then
+			printf "JWT not recieved, recommending you check your variable assignment\n";
+			printf "%s\n" ${SPACER}
+			exit;
+		else
+			printf "JWT Recieved\n"
+			printf "%s\n" ${SPACER}
+			sleep $((jwt_token_timeout-trigger))
+		fi #end if JWT exisit
+	fi #end token refresh. 
+done #end while/do
 
 printf '%s\n' "alertId,alertStatus,policyName,policyDesc,policySeverity,cloudType,resourceId,accountId,resourceName,accountName,regionId,regionName,service,resourceType,resourceApiName" > "${OUTPUT_LOCATION}/cloud_resources_with_alerts_$date.csv"
 
-cat ${JSON_OUTPUT_LOCATION}/alerts_*.json | jq -r '.items[] | {"alertId" : .id, "alertStatus" : .status, "policyName" : .policy.name, "policyDesc" : .policy.description, "policySeverity": .policy.severity, "cloudType": .resource.cloudType, "resourceId": .resource.id, "accountId": .resource.accountId,  "resourcenName": .resource.name,  "accountName": .resource.account,  "regionId": .resource.regionId,  "resourceRegion": .resource.region,  "cloudServiceName": .resource.cloudServiceName, "resourceType": .resource.resourceType, "resourceApiName": .resource.resourceApiName }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/cloud_resources_with_alerts_$date.csv"
+cat ${JSON_OUTPUT_LOCATION}/02_alerts_*.json | jq -r '.items[] | {"alertId" : .id, "alertStatus" : .status, "policyName" : .policy.name, "policyDesc" : .policy.description, "policySeverity": .policy.severity, "cloudType": .resource.cloudType, "resourceId": .resource.id, "accountId": .resource.accountId,  "resourcenName": .resource.name,  "accountName": .resource.account,  "regionId": .resource.regionId,  "resourceRegion": .resource.region,  "cloudServiceName": .resource.cloudServiceName, "resourceType": .resource.resourceType, "resourceApiName": .resource.resourceApiName }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/cloud_resources_with_alerts_$date.csv"
 
 printf '%s\n' "Full Report located at ${OUTPUT_LOCATION}/cloud_resources_with_alerts_$date.csv"
 
-#rm -f ${JSON_OUTPUT_LOCATION}/*.json
+rm -f ${JSON_OUTPUT_LOCATION}/*.json
 
 printf '%s\n' ${DIVIDER}
 end=$(date +%s)
