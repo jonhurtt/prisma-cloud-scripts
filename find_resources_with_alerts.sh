@@ -37,7 +37,7 @@ TOTAL_RESOURCES_WITH_ALERTS=0
 
 #used for batching curl command for finding alerts
 batch_size=10
-curl_break=2
+curl_break=5
 
 #Amount of Time the JWT is valid (10 min) adjust refresh to lower number with slower connections
 jwt_token_timeout=600
@@ -211,13 +211,19 @@ do
 	fi #end token refresh. 
 done #end while/do
 
+printf '%s\n' ${SPACER}
+
 printf '%s\n' "alertId,alertStatus,policyName,policyDesc,policySeverity,cloudType,resourceId,accountId,resourceName,accountName,regionId,regionName,service,resourceType,resourceApiName" > "${OUTPUT_LOCATION}/cloud_resources_with_alerts_$date.csv"
 
 cat ${JSON_OUTPUT_LOCATION}/02_alerts_*.json | jq -r '.items[] | {"alertId" : .id, "alertStatus" : .status, "policyName" : .policy.name, "policyDesc" : .policy.description, "policySeverity": .policy.severity, "cloudType": .resource.cloudType, "resourceId": .resource.id, "accountId": .resource.accountId,  "resourcenName": .resource.name,  "accountName": .resource.account,  "regionId": .resource.regionId,  "resourceRegion": .resource.region,  "cloudServiceName": .resource.cloudServiceName, "resourceType": .resource.resourceType, "resourceApiName": .resource.resourceApiName }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/cloud_resources_with_alerts_$date.csv"
 
+number_of_alerts=($(cat ${JSON_OUTPUT_LOCATION}/02_alerts_*.json | jq -r '.items[].id'))
+
+
+printf '%s alerts found from %s resources\n' ${#number_of_alerts[@]} ${#resource_id_array[@]}
 printf '%s\n' "Full Report located at ${OUTPUT_LOCATION}/cloud_resources_with_alerts_$date.csv"
 
-#rm -f ${JSON_OUTPUT_LOCATION}/*.json
+rm -f ${JSON_OUTPUT_LOCATION}/*.json
 
 printf '%s\n' ${DIVIDER}
 end=$(date +%s)
