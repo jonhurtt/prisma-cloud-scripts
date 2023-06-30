@@ -145,9 +145,9 @@ done
 wait
 
 #Create CSV for all resources
-printf '%s\n' "cloudType,id,accountId,name,accountName,regionId,regionName,service,resourceType" > "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
+printf '%s\n' "cloudType,id,accountId,name,accountName,regionId,regionName,service,resourceType,tags" > "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
 
-cat ${JSON_OUTPUT_LOCATION}/01_api_query_*.json | jq -r '.data.items[] | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
+cat ${JSON_OUTPUT_LOCATION}/01_api_query_*.json | jq -r '.data.items[] | {"cloudType": .cloudType, "id": .id, "accountId": .accountId,  "name": .name,  "accountName": .accountName,  "regionId": .regionId,  "regionName": .regionName,  "service": .service, "resourceType": .resourceType, "tags" : (.data.tags | map(.key,.value) | join(":")) }' | jq -r '[.[]] | @csv' >> "${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
 
 printf '%s\n' "Inventory Report located at ${OUTPUT_LOCATION}/all_cloud_resources_${date}.csv"
 printf "%s\n" ${SPACER}
@@ -217,7 +217,7 @@ cat ${JSON_OUTPUT_LOCATION}/02_alerts_*.json | jq -r '.items[] | {"alertId" : .i
 
 printf '%s\n' "Full Report located at ${OUTPUT_LOCATION}/cloud_resources_with_alerts_$date.csv"
 
-rm -f ${JSON_OUTPUT_LOCATION}/*.json
+#rm -f ${JSON_OUTPUT_LOCATION}/*.json
 
 printf '%s\n' ${DIVIDER}
 end=$(date +%s)
